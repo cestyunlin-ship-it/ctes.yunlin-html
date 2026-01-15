@@ -7,34 +7,27 @@
     <!-- 引入 SheetJS 處理 Excel 匯出 -->
     <script src="cdnjs.cloudflare.com"></script>
     <style>
-        /* 響應式字體：依裝置螢幕縮放 */
         :root { font-size: calc(14px + 0.5vw); }
         body { font-family: "Microsoft JhengHei", sans-serif; background: #f4f7f6; padding: 20px; color: #333; }
         .card { max-width: 900px; margin: auto; background: #fff; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         h2 { text-align: center; color: #1a73e8; margin-bottom: 20px; }
-        
-        /* 佈局設計 */
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
-        
         .field { margin-bottom: 15px; }
         label { display: block; font-weight: bold; margin-bottom: 5px; color: #555; }
         input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 1rem; }
         input[readonly] { background: #eee; cursor: not-allowed; }
-
-        /* 身份別點選區 */
         .radio-group { display: flex; flex-wrap: wrap; gap: 10px; padding: 10px; border: 1px solid #ddd; border-radius: 6px; background: #fafafa; }
         .radio-item { display: flex; align-items: center; cursor: pointer; font-size: 0.95rem; }
         .radio-item input { width: auto; margin-right: 5px; }
-
         .sub-menu { display: none; margin-top: 10px; padding: 12px; background: #e3f2fd; border-radius: 6px; border-left: 5px solid #2196f3; }
-
-        /* 按鈕設計 */
         .btns { margin-top: 25px; display: flex; gap: 10px; }
         button { flex: 1; padding: 15px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; font-size: 1.1rem; }
         .btn-submit { background: #28a745; color: white; }
         .btn-excel { background: #007bff; color: white; }
         button:hover { opacity: 0.8; transform: translateY(-1px); }
+        /* 錯誤跳轉時的高亮效果 */
+        .error-focus { border: 2px solid #dc3545 !important; background-color: #fff8f8; }
     </style>
 </head>
 <body>
@@ -43,10 +36,10 @@
     <h2>📊 數據統計登錄系統</h2>
     <form id="dataForm">
         <div class="form-grid">
-            <div class="field"><label>項次</label><input type="text" id="seq" value="1" readonly></div>
             <div class="field"><label>執行狀況</label><input type="text" id="status" value="已執行" readonly></div>
             <div class="field"><label>日期時間</label><input type="text" id="datetime" readonly></div>
-            <div class="field"><label>姓名</label><input type="text" id="name" placeholder="簡易填寫姓名" required></div>
+            <div class="field"><label>會議類別 (點擊提交後可修改)</label><input type="text" id="meeting" placeholder="請輸入活動名稱" required></div>
+            <div class="field"><label>姓名</label><input type="text" id="name" placeholder="請填寫姓名" required></div>
             <div class="field">
                 <label>性別 (人次選項)</label>
                 <select id="gender">
@@ -54,10 +47,6 @@
                     <option value="女生">女生</option>
                     <option value="二次元">二次元</option>
                 </select>
-            </div>
-            <div class="field">
-                <label>會議類別</label>
-                <input type="text" id="meeting" placeholder="匯出後可於 Excel 填寫">
             </div>
         </div>
 
@@ -104,7 +93,7 @@
         </div>
 
         <div class="btns">
-            <button type="button" class="btn-submit" onclick="submitData()">提交單筆資料</button>
+            <button type="button" class="btn-submit" onclick="submitData()">提交資料並檢查下一場</button>
             <button type="button" class="btn-excel" onclick="exportExcel()">彙整導出 Excel</button>
         </div>
     </form>
@@ -113,7 +102,6 @@
 <script>
     let localData = []; 
 
-    // 自動更新日期時間
     function updateClock() {
         const now = new Date();
         document.getElementById('datetime').value = now.toLocaleString('zh-TW');
@@ -121,23 +109,38 @@
     setInterval(updateClock, 1000);
     updateClock();
 
-    // 身份選單切換
     function toggleSub(show) {
         document.getElementById('subGenderBox').style.display = show ? 'block' : 'none';
     }
 
-    // 提交單筆資料
     async function submitData() {
-        const nameVal = document.getElementById('name').value;
-        if (!nameVal) return alert("請填寫姓名");
+        const nameEl = document.getElementById('name');
+        const meetingEl = document.getElementById('meeting');
+
+        // 清除先前錯誤樣式
+        nameEl.classList.remove('error-focus');
+        meetingEl.classList.remove('error-focus');
+
+        // 資料校驗與自動轉跳
+        if (!meetingEl.value) {
+            alert("請填寫「會議類別」！");
+            meetingEl.classList.add('error-focus');
+            meetingEl.focus();
+            return;
+        }
+        if (!nameEl.value) {
+            alert("請填寫「姓名」！");
+            nameEl.classList.add('error-focus');
+            nameEl.focus();
+            return;
+        }
 
         const idType = document.querySelector('input[name="idType"]:checked').value;
         const entry = {
-            "項次": localData.length + 1,
             "執行狀況": "已執行",
             "日期時間": document.getElementById('datetime').value,
-            "會議類別": document.getElementById('meeting').value,
-            "姓名": nameVal,
+            "會議類別": meetingEl.value,
+            "姓名": nameEl.value,
             "人次(性別)": document.getElementById('gender').value,
             "身份別": idType,
             "身份細分性別": idType !== "無" ? document.getElementById('subGender').value : "N/A",
@@ -148,27 +151,34 @@
 
         localData.push(entry);
 
-        // 串接 Google Sheets (請替換為您的 Apps Script URL)
         const scriptURL = 'https://script.google.com/macros/s/AKfycbxEo19UO3y2lHG8FMEiKWcmCJXGYu4IhXfWjFGS-hRTeTDtIQ75J9hI0dEu9feKRw/exec';
         try {
             fetch(scriptURL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(entry) });
-            alert(`第 ${entry.項次} 筆資料已暫存並提交！`);
+            alert(`資料提交成功！`);
         } catch (e) {
             console.error('儲存失敗', e);
         }
 
-        // 清理並更新項次
-        document.getElementById('name').value = "";
-        document.getElementById('seq').value = localData.length + 1;
+        // 清空姓名
+        nameEl.value = "";
+
+        // 彈出視窗詢問活動狀態
+        setTimeout(() => {
+            const isFinished = confirm("該場活動是否已結束？\n(點擊「確定」將填寫新活動類別；點擊「取消」則繼續沿用當前類別)");
+            if (isFinished) {
+                const newMeeting = prompt("請輸入下一場活動的「會議類別」：", meetingEl.value);
+                if (newMeeting !== null) {
+                    meetingEl.value = newMeeting;
+                }
+            }
+        }, 300);
     }
 
-    // 彙整並下載 Excel
     function exportExcel() {
         if (localData.length === 0) return alert("尚無資料可導出");
         const ws = XLSX.utils.json_to_sheet(localData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "統計總表");
-        // 下載檔案至桌面(下載資料夾)
         XLSX.writeFile(wb, `數據彙整表_${new Date().getTime()}.xlsx`);
     }
 </script>
